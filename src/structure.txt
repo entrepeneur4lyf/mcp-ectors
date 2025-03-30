@@ -1,0 +1,60 @@
+.
+├── client
+│   ├── client_registry.rs
+│   ├── client_session.rs
+│   └── mod.rs
+├── examples
+│   ├── counter_router.rs
+│   ├── hello_world.rs
+│   └── mod.rs
+├── lib.rs
+├── main.rs
+├── mcp
+│   ├── initialize_actor.rs
+│   ├── list_prompts_actor.rs
+│   ├── list_resources_actor.rs
+│   ├── list_tools_actor.rs
+│   └── mod.rs
+├── messages
+│   ├── client_messages.rs
+│   ├── mcp
+│   │   ├── handler.rs
+│   │   ├── mcp_messages.rs
+│   │   ├── mod.rs
+│   │   └── protocol.rs
+│   ├── mod.rs
+│   ├── router_messages.rs
+│   ├── sse
+│   │   ├── broadcast_sse_message.rs
+│   │   ├── deregister_sse_client.rs
+│   │   ├── mod.rs
+│   │   ├── notify_sse_client.rs
+│   │   └── register_sse_client.rs
+│   └── transport_messages.rs
+├── router
+│   ├── mod.rs
+│   ├── router_actor.rs
+│   ├── router_registry.rs
+│   ├── router.rs
+│   ├── router_service_manager.rs
+│   ├── system_router.rs
+│   ├── topic_registry_actor.rs
+│   ├── wasix_mcp.rs
+│   └── wasm_router.rs
+├── server_builder.rs
+├── structure.txt
+├── transport
+│   ├── mod.rs
+│   ├── sse_transport_actor.rs
+│   ├── stdio_transport_actor.rs
+│   ├── transport_actor.rs
+│   ├── transport_config.rs
+│   ├── transport_error.rs
+│   └── wasi_transport_actor.rs
+└── utils
+    ├── json_rpc.rs
+    ├── log_config.rs
+    ├── mod.rs
+    └── wasm_loader.rs
+
+10 directories, 48 files
