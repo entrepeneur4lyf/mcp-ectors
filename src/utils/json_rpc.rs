@@ -1,6 +1,7 @@
 use mcp_spec::protocol::{ErrorData, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use serde_json::{json, Value};
 use crate::messages::JSONRPC_VERSION;
+use crate::utils::error::{Result,jsonrpc_err};
 
 // JSON-RPC Error Codes
 pub const JSON_RPC_PARSE_ERROR: i32 = -32700;
@@ -26,25 +27,28 @@ pub struct JsonRpcUtils;
 
 impl JsonRpcUtils {
     /// Parses raw JSON into a JSON-RPC request
-    pub fn parse_request(json_str: &str) -> Result<JsonRpcRequest, JsonRpcError> {
-        serde_json::from_str(json_str).map_err(|e| JsonRpcUtils::invalid_request(Some(e.to_string())))
+    pub fn parse_request(json_str: &str) -> Result<JsonRpcRequest> {
+        serde_json::from_str(json_str)
+            .map_err(|e| jsonrpc_err(format!("Invalid JSON-RPC request: {}", e)))
     }
 
     /// Parses raw JSON into a JSON-RPC message (handles requests and notifications)
-    pub fn parse_message(json_str: &str) -> Result<Value, JsonRpcError> {
-        serde_json::from_str(json_str).map_err(|e| JsonRpcUtils::invalid_request(Some(e.to_string())))
+    pub fn parse_message(json_str: &str) -> Result<Value> {
+        serde_json::from_str(json_str)
+            .map_err(|e| jsonrpc_err(format!("Invalid JSON message: {}", e)))
     }
 
     /// Serializes a JSON-RPC response into a string
-    pub fn serialize_response(response: &JsonRpcResponse) -> String {
-        serde_json::to_string(response).unwrap_or_else(|_| "{}".to_string())
+    pub fn serialize_response(response: &JsonRpcResponse) -> Result<String> {
+        serde_json::to_string(response)
+            .map_err(|e| jsonrpc_err(format!("Failed to serialize JSON-RPC response: {}", e)))
     }
 
     /// Creates a generic JSON-RPC error response
     pub fn error_response(id: Option<u64>, code: i32, message: &str, data: Option<Value>) -> JsonRpcError {
         JsonRpcError {
             jsonrpc: JSONRPC_VERSION.to_string(),
-            id: id,
+            id,
             error: ErrorData {
                 code,
                 message: message.to_string(),
@@ -62,18 +66,35 @@ impl JsonRpcUtils {
                 code: -32600, // Invalid Request
                 message: "Invalid JSON-RPC request".to_string(),
                 data: detail.map(|d| json!(d)),
-            
-            }
+            },
         }
     }
 
     /// Returns a predefined error for method not found
     pub fn method_not_found(id: u64, method: &str) -> JsonRpcError {
-        JsonRpcUtils::error_response(Some(id), -32601, &format!("Method '{}' not found", method), None)
+        JsonRpcUtils::error_response(
+            Some(id),
+            -32601,
+            &format!("Method '{}' not found", method),
+            None
+        )
     }
 
     /// Returns a predefined error for internal server errors
     pub fn internal_error(id: Option<u64>, detail: Option<String>) -> JsonRpcError {
-        JsonRpcUtils::error_response(id, -1, "Internal server error", detail.map(|d| json!(d)))
+        JsonRpcUtils::error_response(
+            id,
+            -1,
+            "Internal server error",
+            detail.map(|d| json!(d))
+        )
+    }
+
+    /// Converts JsonRpcError to McpError
+    pub fn to_mcp_error(error: JsonRpcError) -> crate::utils::error::McpError {
+        jsonrpc_err(format!("JSON-RPC error {}: {}",
+            error.error.code,
+            error.error.message
+        ))
     }
 }

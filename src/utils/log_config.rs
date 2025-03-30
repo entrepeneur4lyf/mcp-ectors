@@ -1,8 +1,9 @@
 
 
 use tracing::Level;
-use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{fmt::layer, EnvFilter, Registry, layer::SubscriberExt};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use crate::utils::error::{Result, internal_err};
 
 /// Configuration for dynamic logging.
 #[derive(Clone)]
@@ -13,12 +14,16 @@ pub struct LogConfig {
 }
 
 /// Initializes a tracing subscriber that logs to both stdout and a rolling file.
-pub fn init_logging(config: &LogConfig) {
+pub fn init_logging(config: &LogConfig) -> Result<()> {
     // Create a rolling file appender that rotates daily.
-    let file_appender = RollingFileAppender::new(Rotation::DAILY, &config.log_dir, &config.log_file);
-    
+    let file_appender = RollingFileAppender::new(
+        Rotation::DAILY,
+        &config.log_dir,
+        &config.log_file
+    );
+
     // Create a layer that writes logs to stdout.
-    let stdout_layer = fmt::layer()
+    let stdout_layer = layer()
         .with_writer(std::io::stdout)
         .with_target(false)       // Disable target module info if desired.
         .with_thread_ids(true)
@@ -26,7 +31,7 @@ pub fn init_logging(config: &LogConfig) {
         .with_line_number(true);
 
     // Create a layer that writes logs to the file.
-    let file_layer = fmt::layer()
+    let file_layer = layer()
         .with_writer(file_appender)
         .with_target(false)
         .with_thread_ids(true)
@@ -34,7 +39,8 @@ pub fn init_logging(config: &LogConfig) {
         .with_line_number(true);
 
     // Build an EnvFilter from the default environment plus our log level.
-    let env_filter = EnvFilter::from_default_env().add_directive(config.level.into());
+    let env_filter = EnvFilter::from_default_env()
+        .add_directive(config.level.into());
 
     // Build the subscriber using the Registry and attach both layers.
     let subscriber = Registry::default()
@@ -44,5 +50,7 @@ pub fn init_logging(config: &LogConfig) {
 
     // Set this subscriber as the global default.
     tracing::subscriber::set_global_default(subscriber)
-        .expect("Failed to set up global tracing subscriber");
+        .map_err(|e| internal_err(format!("Failed to set up global tracing subscriber: {}", e)))?;
+
+    Ok(())
 }
