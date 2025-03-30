@@ -62,7 +62,7 @@ impl Handler<StartTransport> for StdioTransportActor
             let mut buffer = String::new();
 
             while handle.read_line(&mut buffer).is_ok() {
-                let request: Result<JsonRpcRequest, _> = serde_json::from_str(&buffer.trim());
+                let request: Result<JsonRpcRequest, _> = serde_json::from_str(buffer.trim());
                 buffer.clear();
 
                 match request {
@@ -132,18 +132,18 @@ async fn main() {
             buffer.clear();
             // Read input from stdin
             if handle.read_line(&mut buffer).is_ok() {
-                let request: Result<JsonRpcRequest, _> = serde_json::from_str(&buffer.trim());
+                let request: Result<JsonRpcRequest, _> = serde_json::from_str(buffer.trim());
 
                 match request {
                     Ok(req) => {
                         // Send the request to the transport actor
-                        let _reply = transport_actor.do_send(TransportRequest { request: req.clone() });
+                        transport_actor.do_send(TransportRequest { request: req.clone() });
 
-                        let id = req.id.clone();
+                        let id = req.id; // Remove clone for Copy type
                         // Simulate printing the response back to stdout
                         let response = JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
-                            id: id,
+                            id, // Use shorthand for field name
                             result: Some(json!({"message": "Response from StdioTransportActor"})),
                             error: None,
                         };

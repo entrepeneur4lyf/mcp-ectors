@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, sync::Arc, thread};
+use std::{sync::Arc, thread}; // Removed unused Future and Pin
 
 use exports::wasix;
 use mcp_spec::{ handler::{PromptError, ResourceError}, prompt::Prompt, protocol::{CallToolResult, GetPromptResult, ReadResourceResult, ServerCapabilities}, Resource, Tool, ToolError};
@@ -9,8 +9,11 @@ use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 use wasmtime::{component::{bindgen, Component, Linker}, Config, Engine, Store};
 use std::convert::Into;
 
-use super::{wasix_mcp::json_to_value, Router};
-pub type ResponseFuture<I> = Pin<Box<dyn Future<Output = I>>>;
+use super::{wasix_mcp::json_to_value, Router}; // Removed unused ResponseFuture import
+
+// Type aliases for complex channel types
+type WasmRequestSender = Sender<(WasmRequest, Sender<WasmResponse>)>;
+type WasmRequestReceiver = Receiver<(WasmRequest, Sender<WasmResponse>)>;
 
 bindgen!({
     world: "mcp",
@@ -94,7 +97,7 @@ impl WasmRouterHandle {
             _ => Err("Unexpected response type".into()),
         }
     }
-    
+
     pub fn get_instructions(&self) -> Result<String, String> {
         match self.send_request(WasmRequest::GetInstructions)? {
             WasmResponse::Instructions(instr) => Ok(instr),
@@ -102,7 +105,7 @@ impl WasmRouterHandle {
             _ => Err("Unexpected response type".into()),
         }
     }
-    
+
     pub fn list_tools(&self) -> Result<Vec<Tool>, String> {
         match self.send_request(WasmRequest::ListTools)? {
             WasmResponse::Tools(tools) => Ok(tools),
@@ -163,12 +166,10 @@ impl WasmRouterHandle {
 /// Spawns a dedicated thread that owns the WASM instance and processes requests.
 /// In your real code you’d initialize the WASM engine, store, component, etc. here.
 pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
-    let (req_tx, req_rx): (
-        Sender<(WasmRequest, Sender<WasmResponse>)>,
-        Receiver<(WasmRequest, Sender<WasmResponse>)>,
-    ) = mpsc::channel();
-    
-    let file = wasm_path.to_owned();    
+    // Use the type aliases for clarity
+    let (req_tx, req_rx): (WasmRequestSender, WasmRequestReceiver) = mpsc::channel();
+
+    let file = wasm_path.to_owned();
     thread::spawn(move || {
 
         // --- Initialization ---
@@ -183,15 +184,18 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
             table: ResourceTable::new(),
         };
         let mut store = Store::new(&engine, state);
-        let component = Component::from_file(&engine, file.clone()).expect(format!("wasm file {} could not be read",file).as_str());
+        let component = Component::from_file(&engine, file.clone())
+            .unwrap_or_else(|_| panic!("wasm file {} could not be read", file));
         let mut linker = Linker::new(&engine);
-        wasmtime_wasi::add_to_linker_sync::<MyState>(&mut linker).expect("Could not add wasi to wasm router");
+        wasmtime_wasi::add_to_linker_sync::<MyState>(&mut linker)
+            .expect("Could not add wasi to wasm router");
 
         // Instantiate the MCP router from the wasm component
         let router = Mcp::instantiate(&mut store, &component, &linker)
-            .map_err(|err| Box::new(err) as Box<anyhow::Error>).expect(format!("Could not instantiate wasm router: {}",file).as_str());
+            .map_err(|err| Box::new(err) as Box<anyhow::Error>)
+            .unwrap_or_else(|_| panic!("Could not instantiate wasm router: {}", file));
 
-        
+
         // --- Event Loop ---
         // Process incoming requests one at a time on this dedicated thread.
         for (request, resp_tx) in req_rx {
@@ -214,7 +218,7 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                             // If the call returns a nested vector, flatten it.
                             let mcp_tools: Vec<mcp_spec::Tool> = tools
                                 .into_iter()
-                                .map(|tool| mcp_spec::Tool::from(tool))
+                                .map(mcp_spec::Tool::from) // Use function directly
                                 .collect();
                             WasmResponse::Tools(mcp_tools)
                         },
@@ -227,7 +231,7 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                             // If the call returns a nested vector, flatten it.
                             let mcp_prompts: Vec<mcp_spec::prompt::Prompt> = prompts
                                 .into_iter()
-                                .map(|prompt| mcp_spec::prompt::Prompt::from(prompt))
+                                .map(mcp_spec::prompt::Prompt::from) // Use function directly
                                 .collect();
                             WasmResponse::Prompts(mcp_prompts)
                         },
@@ -239,7 +243,7 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                         Ok(resources) =>{
                             let mcp_resources: Vec<mcp_spec::resource::Resource> = resources
                             .into_iter()
-                            .map(|resource| mcp_spec::resource::Resource::from(resource))
+                            .map(mcp_spec::resource::Resource::from) // Use function directly
                             .collect();
                             WasmResponse::Resources(mcp_resources)
                         },
@@ -254,7 +258,7 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                                 Ok(wasix::mcp::router::ReadResourceResult { contents }) => {
                                     let resource_contents: Vec<mcp_spec::resource::ResourceContents> = contents
                                     .into_iter()
-                                    .map(|resource| mcp_spec::resource::ResourceContents::from(resource))
+                                    .map(mcp_spec::resource::ResourceContents::from) // Use function directly
                                     .collect();
                                     let resource_result = ReadResourceResult{
                                         contents: resource_contents,
@@ -275,7 +279,7 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                             WasmResponse::Error(format!("Failed to read resource: {}", e))
                         },
                     }
-                },                
+                },
                 WasmRequest::GetPrompt(name) => {
                     match router.wasix_mcp_router().call_get_prompt(&mut store, &name) {
                         Ok(prompt_result) => {
@@ -284,14 +288,14 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                                 Ok(wasix::mcp::router::GetPromptResult{description, messages}) => {
                                     let prompt_messages: Vec<mcp_spec::prompt::PromptMessage> = messages
                                         .into_iter()
-                                        .map(|resource| mcp_spec::prompt::PromptMessage::from(resource)) // Fix to correctly map each `resource`
+                                        .map(mcp_spec::prompt::PromptMessage::from) // Use function directly
                                         .collect();
-                                
+
                                     let prompt = mcp_spec::protocol::GetPromptResult {
                                         description,
                                         messages: prompt_messages,
                                     };
-                                
+
                                     WasmResponse::GetPromptResult(prompt)
                                 },
                                 // Handle the ResourceError
@@ -316,44 +320,44 @@ pub fn spawn_wasm_router(wasm_path: &str) -> WasmRouterHandle {
                     let mcp_value = json_to_value(value);
                     match router.wasix_mcp_router()
                         .call_call_tool(&mut store,
-                        name.as_str(), 
-                        &mcp_value.unwrap()) 
+                        name.as_str(),
+                        &mcp_value.unwrap())
                         {
                             Ok(tool) => match tool {
                                 Ok(wasix::mcp::router::CallToolResult{content, is_error}) => {
                                     let contents: Vec<mcp_spec::Content> = content
                                         .into_iter()
-                                        .map(|item| mcp_spec::Content::from(item)) // Fix to correctly map each `resource`
+                                        .map(mcp_spec::Content::from) // Use function directly
                                         .collect();
                                     WasmResponse::CallToolResult(CallToolResult { content:contents, is_error})
                                 },
-                                Err(wasix::mcp::router::ToolError::ExecutionError(error)) => WasmResponse::RetToolError(ToolError::ExecutionError(error)), 
+                                Err(wasix::mcp::router::ToolError::ExecutionError(error)) => WasmResponse::RetToolError(ToolError::ExecutionError(error)),
                                 Err(wasix::mcp::router::ToolError::InvalidParameters(error)) => WasmResponse::RetToolError(ToolError::InvalidParameters(error)),
                                 Err(wasix::mcp::router::ToolError::NotFound(error)) => WasmResponse::RetToolError(ToolError::NotFound(error)),
                                 Err(wasix::mcp::router::ToolError::SchemaError(error)) => WasmResponse::RetToolError(ToolError::SchemaError(error)),
-                                
+
                             },
                             Err(e) => WasmResponse::Error(e.to_string()),
-                
+
                         }
                 },
                 WasmRequest::Capabilities => {
                     match router.wasix_mcp_router()
-                        .call_capabilities(&mut store) 
+                        .call_capabilities(&mut store)
                             {
                                 Ok(capab) => {
                                         let mcp_cap = mcp_spec::protocol::ServerCapabilities::from(capab);
                                         WasmResponse::Capabilities(mcp_cap)
                                 },
                                 Err(e) => WasmResponse::Error(e.to_string()),
-                    
+
                             }
                 },
             };
             let _ = resp_tx.send(response);
         }
     });
-    
+
     WasmRouterHandle {
         request_tx: req_tx,
     }
@@ -383,7 +387,7 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn instructions(&self) -> String {
         match self.handle.get_instructions() {
             Ok(instr) => instr,
@@ -393,7 +397,7 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn list_tools(&self) -> Vec<Tool> {
         match self.handle.list_tools() {
             Ok(tools) => tools,
@@ -403,7 +407,7 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn capabilities(&self) -> ServerCapabilities {
         match self.handle.capabilities() {
             Ok(caps) => caps,
@@ -413,12 +417,12 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn call_tool(
         &self,
         tool_name: &str,
         arguments: JsonValue,
-    ) -> super::router::ResponseFuture<Result<CallToolResult, ToolError>> {
+    ) -> super::router_trait::ResponseFuture<Result<CallToolResult, ToolError>> { // Use full path
         match self.handle.call_tool(tool_name, arguments.clone()) {
             Ok(tool_result) => {
                 Box::pin(async move {
@@ -433,7 +437,7 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn list_resources(&self) -> Vec<Resource> {
         match self.handle.list_resources() {
             Ok(resources) => resources,
@@ -443,11 +447,11 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn read_resource(
         &self,
         uri: &str,
-    ) -> super::router::ResponseFuture<Result<ReadResourceResult, ResourceError>> {
+    ) -> super::router_trait::ResponseFuture<Result<ReadResourceResult, ResourceError>> { // Use full path
         match self.handle.read_resource(uri) {
             Ok(resource) => {
                 Box::pin(async move {
@@ -462,7 +466,7 @@ impl Router for WasmRouter {
             }
         }
     }
-    
+
     fn list_prompts(&self) -> Vec<Prompt> {
         match self.handle.list_prompts() {
             Ok(prompts) => prompts,
@@ -472,8 +476,8 @@ impl Router for WasmRouter {
             }
         }
     }
-    
-    fn get_prompt(&self, prompt_name: &str) -> super::router::ResponseFuture<Result<GetPromptResult, PromptError>> {
+
+    fn get_prompt(&self, prompt_name: &str) -> super::router_trait::ResponseFuture<Result<GetPromptResult, PromptError>> { // Use full path
         match self.handle.get_prompt(prompt_name) {
             Ok(prompt) => {
                 Box::pin(async move {

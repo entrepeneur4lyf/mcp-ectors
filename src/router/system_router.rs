@@ -1,22 +1,19 @@
 use serde_json::Value;
 
-use crate::router::{router::CapabilitiesBuilder, router_registry::ROUTER_SEPERATOR, Router};
+use crate::router::{router_trait::CapabilitiesBuilder, router_registry::ROUTER_SEPERATOR, Router}; // Updated import
 use mcp_spec::{handler::{PromptError, ResourceError}, prompt::Prompt, protocol::{CallToolResult, GetPromptResult, ReadResourceResult, ServerCapabilities}, Resource, ResourceContents::{self, TextResourceContents}, Tool, ToolError};
 
-use super::router::ResponseFuture;
+use super::router_trait::ResponseFuture; // Updated import
 
 /// **A simple Hello World router**
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SystemRouter{
     resources: Vec<ResourceContents>,
 }
 
 impl SystemRouter {
     pub fn new() -> Self {
-            let resources = vec![];
-        Self {
-            resources,
-        }
+        Self::default()
     }
 }
 
@@ -52,11 +49,11 @@ impl Router for SystemRouter {
     }
 
     fn list_resources(&self) -> Vec<Resource> {
-        vec![Resource{ 
-            uri: "all".to_string(), 
-            name: "all resources, prompts, tools,... registered in this mcp multi router server".to_string(), 
-            description: Some("this gives a description of all the resources, prompts, tools,... which different routers offer that have been installed in this multi-router mcp server.".to_string()), 
-            mime_type: "text/plain".to_string(), 
+        vec![Resource{
+            uri: "all".to_string(),
+            name: "all resources, prompts, tools,... registered in this mcp multi router server".to_string(),
+            description: Some("this gives a description of all the resources, prompts, tools,... which different routers offer that have been installed in this multi-router mcp server.".to_string()),
+            mime_type: "text/plain".to_string(),
             annotations: None }]
     }
 
@@ -73,19 +70,19 @@ impl Router for SystemRouter {
             hellow_world: This server responds with a greeting, 'Hello {name}', where 'name' is the parameter passed.
             ".to_string()});
             let uri_clone = uri.to_string();
-        Box::pin(async move { 
+        Box::pin(async move {
             match uri_clone.as_str() {
                 "all" => {Ok(ReadResourceResult{ contents: resources })},
-                name => Err(ResourceError::NotFound(format!("Resource {} not found", name))) 
+                name => Err(ResourceError::NotFound(format!("Resource {} not found", name)))
             }
-            
+
         })
     }
-    
+
     fn list_prompts(&self) -> Vec<Prompt> {
         vec![]
     }
-    
+
     fn get_prompt(&self, _prompt_name: &str) -> ResponseFuture<Result<GetPromptResult, PromptError>> {
 
         let result = GetPromptResult{ description: None, messages: vec![] };
@@ -94,4 +91,3 @@ impl Router for SystemRouter {
         })
     }
 }
-

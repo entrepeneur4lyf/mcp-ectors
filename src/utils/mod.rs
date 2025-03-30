@@ -3,6 +3,7 @@ pub mod wasm_loader;
 pub mod log_config;
 pub mod error;
 pub mod config;
+pub mod observability;
 
 pub use json_rpc::JsonRpcUtils;
 pub use wasm_loader::WasmLoader;
@@ -11,4 +12,9 @@ pub use error::{McpError, Result, ResultExt, internal_err, config_err, transport
 pub use config::{
     AppConfig, ConfigBuilder, Validate, LogLevel,
     LoggingConfig, TransportConfig, RouterConfig, SecurityConfig
+};
+pub use observability::{
+    ObservabilityFramework, init_default_observability,
+    TaskTimer, record_timing, record_histogram, increment_counter, set_gauge,
+    with_span, timed_call, ObservableResult, TraceContext
 };

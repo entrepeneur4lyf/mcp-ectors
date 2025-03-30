@@ -4,16 +4,14 @@ use mcp_spec::{prompt::Prompt, protocol::{JsonRpcResponse, ListPromptsResult}};
 
 
 /// **A simple prompt router that implements `RouterHandler`**
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ListPromptsActor {
     prompts: Vec<Prompt>,
 }
 
 impl ListPromptsActor {
     pub fn new() -> Self {
-        Self {
-            prompts:Vec::new(),
-        }
+        Self::default()
     }
 
     fn list_prompts(&self) -> Vec<Prompt> {
@@ -49,7 +47,7 @@ impl Handler<ListPromptsRequest> for ListPromptsActor {
              // Acquire the read lock
             Ok(JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
-                id: request.id.clone(),
+                id: request.id, // Remove clone for Copy type
                 result: Some(serde_json::json!(result.clone())), // Clone the prompts list to avoid holding the lock
                 error: None,
             })
@@ -68,11 +66,11 @@ where
         let new_prompts: Vec<Prompt> = msg
             .prompts
             .into_iter()
-            .enumerate()
-            .map(|(_i, prompt)| {
+            // Removed .enumerate() as index is not used
+            .map(|prompt| {
                 // Substitute router_id:name into the name of each prompt
                 let new_name = format!("{}{}{}", msg.router_id, ROUTER_SEPERATOR, prompt.name);
-                
+
                 // Create new Prompt with updated name and keep description and arguments intact
                 Prompt {
                     name: new_name,
@@ -100,11 +98,11 @@ where
         let old_prompts: Vec<Prompt> = msg
             .prompts
             .into_iter()
-            .enumerate()
-            .map(|(_i, prompt)| {
+            // Removed .enumerate() as index is not used
+            .map(|prompt| {
                 // Substitute router_id:name into the name of each prompt
                 let new_name = format!("{}{}{}", msg.router_id, ROUTER_SEPERATOR, prompt.name);
-                
+
                 // Create new Prompt with updated name and keep description and arguments intact
                 Prompt {
                     name: new_name,

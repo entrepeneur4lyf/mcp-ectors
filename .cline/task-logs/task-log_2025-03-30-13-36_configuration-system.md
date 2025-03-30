@@ -29,6 +29,7 @@
   - Use the config crate for multi-source configuration loading
   - Implement custom validation logic for complex configuration rules
   - Add detailed documentation for all configuration options
+  - **IMPORTANT**: Added the 'config' dependency using 'cargo add config' command rather than directly editing Cargo.toml per dependency management rule
 
 ## Implementation Plan
 1. ✅ Add required dependencies to Cargo.toml

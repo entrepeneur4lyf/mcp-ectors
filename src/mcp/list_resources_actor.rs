@@ -4,16 +4,14 @@ use mcp_spec::{protocol::{JsonRpcResponse, ListResourcesResult}, resource::Resou
 
 
 /// **A simple resource router that implements `RouterHandler`**
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ListResourcesActor {
     resources: Vec<Resource>,
 }
 
 impl ListResourcesActor {
     pub fn new() -> Self {
-        Self {
-            resources:Vec::new(),
-        }
+        Self::default()
     }
 
     fn list_resources(&self) -> Vec<Resource> {
@@ -49,7 +47,7 @@ impl Handler<ListResourcesRequest> for ListResourcesActor {
              // Acquire the read lock
             Ok(JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
-                id: request.id.clone(),
+                id: request.id, // Remove clone for Copy type
                 result: Some(serde_json::json!(result.clone())), // Clone the resources list to avoid holding the lock
                 error: None,
             })
@@ -68,11 +66,11 @@ where
         let new_resources: Vec<Resource> = msg
             .resources
             .into_iter()
-            .enumerate()
-            .map(|(_i, resource)| {
+            // Removed .enumerate() as index is not used
+            .map(|resource| {
                 // Substitute router_id:name into the name of each resource
                 let new_name = format!("{}{}{}", msg.router_id, ROUTER_SEPERATOR, resource.name);
-                
+
                 // Create new Resource with updated name and keep description and arguments intact
                 Resource {
                     name: new_name,
@@ -102,11 +100,11 @@ where
         let old_resources: Vec<Resource> = msg
             .resources
             .into_iter()
-            .enumerate()
-            .map(|(_i, resource)| {
+            // Removed .enumerate() as index is not used
+            .map(|resource| {
                 // Substitute router_id:name into the name of each resource
                 let new_uri = format!("{}{}{}", msg.router_id, ROUTER_SEPERATOR, resource.uri);
-                
+
                 // Create new Resource with updated name and keep description and arguments intact
                 Resource {
                     name: resource.name.clone(),

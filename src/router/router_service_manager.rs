@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use actix::{Actor, Addr};
-use tracing::info;
+use tracing::{info, error}; // Added error import
 use notify::{Error, Event, EventKind, RecommendedWatcher, Watcher};
 use crate::messages::{GetRouter, RegisterRouter, UnregisterRouter};
 use crate::{mcp::{ListPromptsActor, ListToolsActor, ListResourcesActor}, messages::{AddPromptsRequest, AddResourcesRequest, AddToolsRequest}};
@@ -43,7 +43,7 @@ impl RouterServiceManager {
         let _ = manager
             .register_router::<SystemRouter>("system".to_string(), Box::new(system))
             .await;
-        
+
         // Optionally handle the wasm directory at startup by registering all existing wasm routers
         if let Some(path) = wasm_path {
             let wpath = Arc::new(path);
@@ -83,22 +83,26 @@ impl RouterServiceManager {
                                         EventKind::Create(_) => {
                                             println!("Wasm file created: {:?}", path);
                                             let router = create_wasm_router(path);
-                                            let _ = rsm.lock().unwrap().register_router::<WasmRouter>(router_id.clone(),router);
+                                            // Explicitly drop the future
+                                            std::mem::drop(rsm.lock().unwrap().register_router::<WasmRouter>(router_id.clone(),router));
                                         }
                                         EventKind::Modify(_) => {
                                             // this gets called twice. One time with the old and one time with the new
                                             if path.exists() {
                                                 println!("Wasm file modified - new name: {:?}", path);
                                                 let router = create_wasm_router(path);
-                                                let _ = rsm.lock().unwrap().register_router::<WasmRouter>(router_id.clone(),router);
+                                                // Explicitly drop the future
+                                                std::mem::drop(rsm.lock().unwrap().register_router::<WasmRouter>(router_id.clone(),router));
                                             } else {
                                                 println!("Wasm file modified - oldname: {:?}", path);
-                                                let _ = rsm.lock().unwrap().unregister_router(&router_id);
+                                                // Explicitly drop the future
+                                                std::mem::drop(rsm.lock().unwrap().unregister_router(&router_id));
                                             }
                                         }
                                         EventKind::Remove(_) => {
                                             println!("Wasm file removed: {:?}", path);
-                                            let _ = rsm.lock().unwrap().unregister_router(&router_id);
+                                            // Explicitly drop the future
+                                            std::mem::drop(rsm.lock().unwrap().unregister_router(&router_id));
                                         }
                                         _ => {}
                                     }
@@ -125,24 +129,36 @@ impl RouterServiceManager {
 
     // Recursively find all Wasm files in the directory and register them
     async fn scan_and_register_wasm_files(&mut self, wasm_path: Arc<String>) {
-        let paths = std::fs::read_dir(Path::new(wasm_path.as_ref())).unwrap();
+        // Use if let Ok to handle potential errors when reading the directory
+        if let Ok(paths) = std::fs::read_dir(Path::new(wasm_path.as_ref())) {
+            // Iterate through the directory entries
+            for entry_result in paths {
+                // Use if let Ok to handle potential errors for each entry
+                if let Ok(entry) = entry_result {
+                    let path = entry.path();
+                    // Check if it's a file with the .wasm extension
+                    if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("wasm") {
+                        let router = create_wasm_router(&path);
+                        let router_id = path.file_stem()
+                            .and_then(|name| name.to_str())
+                            .unwrap_or("defaultname")
+                            .replace('_', "")
+                            .to_string();
 
-        for entry in paths {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("wasm") {
-                    let router = create_wasm_router(&path);
-                    let router_id = path.file_stem()
-                        .and_then(|name| name.to_str())  // Get the file name without the extension
-                        .unwrap_or("defaultname")       // Provide a default name in case of failure
-                        .replace('_', "")               // Replace all underscores
-                        .to_string();
-                    
-                    let _ = self.register_router::<WasmRouter>(router_id.clone(), router).await;
+                        // Register the router and handle potential errors
+                        if let Err(e) = self.register_router::<WasmRouter>(router_id.clone(), router).await {
+                            error!("Failed to register router {}: {}", router_id, e); // Use tracing::error
+                        }
+                    }
+                } else if let Err(e) = entry_result {
+                    error!("Failed to process directory entry: {}", e); // Log error for entry processing
                 }
             }
+        } else {
+            error!("Failed to read directory: {}", wasm_path.as_ref()); // Log error for directory reading
         }
     }
+
 
     // Register the router
     pub async fn register_router<T: Router>(&mut self, router_id: String, router: Box<dyn Router>) -> Result<(), String> {
@@ -159,21 +175,21 @@ impl RouterServiceManager {
         .await
         .unwrap();
 
-        if prompts.len() > 0 {
+        if !prompts.is_empty() { // Use !is_empty() instead of len() > 0
             self.list_prompts.do_send(AddPromptsRequest {
                 router_id: router_id.clone(),
                 prompts,
                 router: router_addr.clone(),
             });
         }
-        if tools.len() > 0 { 
+        if !tools.is_empty() { // Use !is_empty() instead of len() > 0
             self.list_tools.do_send(AddToolsRequest {
                 router_id: router_id.clone(),
                 tools,
                 router: router_addr.clone(),
             });
         }
-        if resources.len() > 0 {
+        if !resources.is_empty() { // Use !is_empty() instead of len() > 0
             self.list_resources.do_send(AddResourcesRequest {
                 router_id: router_id.clone(),
                 resources,
@@ -187,11 +203,13 @@ impl RouterServiceManager {
     // Unregister the router
     pub async fn unregister_router(&mut self, router_id: &str) -> Result<(), String> {
         // Unregister the router
-        let _ = self.active_registry
+        // Explicitly drop the future
+        self.active_registry
         .send(UnregisterRouter { router_id: router_id.to_string() })
         .await
         .unwrap();
-        
+        let _ = ();
+
         info!("Unregistered router: {}", router_id);
         Ok(())
     }

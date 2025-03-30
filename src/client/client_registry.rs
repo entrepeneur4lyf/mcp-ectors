@@ -39,15 +39,14 @@ pub struct BroadcastMessage {
 pub struct ClientRegistryMessage(pub JsonRpcMessage);
 
 /// Actor that manages registered clients
+#[derive(Default)]
 pub struct ClientRegistryActor {
     clients: HashMap<u64, Recipient<ClientMessage>>,
 }
 
 impl ClientRegistryActor {
     pub fn new() -> Self {
-        Self {
-            clients: HashMap::new(),
-        }
+        Self::default()
     }
 }
 
@@ -98,7 +97,7 @@ impl Handler<BroadcastMessage> for ClientRegistryActor {
 
     fn handle(&mut self, msg: BroadcastMessage, _ctx: &mut Self::Context) -> Self::Result {
         for (_, recipient) in self.clients.iter() {
-            let _ = recipient.do_send(ClientMessage(msg.message.clone()));
+            recipient.do_send(ClientMessage(msg.message.clone()));
         }
     }
 }

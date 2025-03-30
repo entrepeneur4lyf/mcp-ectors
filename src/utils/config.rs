@@ -16,11 +16,12 @@ pub trait Validate {
 }
 
 /// Log levels for the application
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)] // Added Default derive
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Trace,
     Debug,
+    #[default] // Mark Info as the default variant
     Info,
     Warn,
     Error,
@@ -53,11 +54,7 @@ impl FromStr for LogLevel {
     }
 }
 
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Info
-    }
-}
+// Removed manual Default impl
 
 /// Configuration for the logging system
 #[derive(Debug, Clone, Serialize, Deserialize)]

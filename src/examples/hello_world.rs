@@ -1,15 +1,15 @@
 use serde_json::Value;
 
-use crate::router::{router::{CapabilitiesBuilder, ResponseFuture}, Router};
+use crate::router::{router_trait::{CapabilitiesBuilder, ResponseFuture}, Router}; // Updated import
 use mcp_spec::{handler::{PromptError, ResourceError}, prompt::Prompt, protocol::{CallToolResult, GetPromptResult, ReadResourceResult, ServerCapabilities}, Content, Resource, Tool, ToolError};
 
 /// **A simple Hello World router**
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct HelloWorldRouter;
 
 impl HelloWorldRouter {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 }
 
@@ -81,11 +81,11 @@ impl Router for HelloWorldRouter {
     ) -> ResponseFuture<Result<ReadResourceResult, ResourceError>> {
         Box::pin(async { Err(ResourceError::NotFound("Resource not found".to_string())) })
     }
-    
+
     fn list_prompts(&self) -> Vec<Prompt> {
         vec![]
     }
-    
+
     fn get_prompt(&self, _prompt_name: &str) -> ResponseFuture<Result<GetPromptResult, PromptError>> {
 
         let result = GetPromptResult{ description: None, messages: vec![] };
@@ -94,4 +94,3 @@ impl Router for HelloWorldRouter {
         })
     }
 }
-

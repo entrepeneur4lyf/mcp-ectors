@@ -26,8 +26,18 @@ Project Progress: mcp-ectors
   - ✅ ResultExt trait for context propagation
   - ✅ Integration with thiserror for detailed error messages
   - ✅ Robust error conversion and helper functions
-- 🔄 Configuration System
-- 🔄 Observability Framework
+- ✅ Configuration System
+  - ✅ Centralized configuration types with validation
+  - ✅ Multi-source configuration loading (files, environment variables)
+  - ✅ Builder pattern for flexible initialization
+  - ✅ Type-safe access to configuration values
+  - ✅ Cross-component validation for interdependent settings
+- ✅ Observability Framework (Score: 22/23)
+  - ✅ Structured logging with configurable levels
+  - ✅ Simplified metrics tracking via logging
+  - ✅ Basic tracing with spans and context
+  - ✅ Helper utilities for timing functions and error tracking
+  - ✅ Example demonstrating all observability features
 
 ### Protocol Extensions (2025-03-30 Implementation)
 - ✅ Notifications System
@@ -44,6 +54,8 @@ Project Progress: mcp-ectors
 - ✅ Counter Router example
 - ✅ Hello World Router example
 - ✅ Test mock router for integration testing
+- ✅ Configuration System example
+- ✅ Observability Framework example
 
 ### Project Setup
 - ✅ Basic documentation
@@ -94,7 +106,7 @@ Project Progress: mcp-ectors
 | Package | Status | Notes |
 |---------|--------|-------|
 | src/client | ✅ Stable | Client session management working |
-| src/examples | ✅ Stable | Basic examples functioning |
+| src/examples | ✅ Enhanced | Added configuration and observability examples (2025-03-30) |
 | src/mcp | ✅ Enhanced | Added Notifications System (2025-03-30) |
 | src/messages | ✅ Enhanced | Added notification message structures |
 | src/router | ✅ Stable | Router management working |
@@ -102,26 +114,27 @@ Project Progress: mcp-ectors
 | src/transport/sse | ✅ Stable | SSE transport working |
 | src/transport/stdio | 🔄 In Progress | Basic implementation needs testing |
 | src/transport/wasi | 🔄 In Progress | Early implementation phase |
-| src/utils | ✅ Enhanced | Added Error Handling Framework (2025-03-30) |
+| src/utils | ✅ Enhanced | Added Error Handling Framework, Configuration System, and Observability Framework (2025-03-30) |
 
 ## Known Limitations
 
 1. Currently only supports SSE transport for production use
 2. Limited authentication options
-3. No built-in monitoring or metrics collection
+3. Simplified metrics collection through logging rather than Prometheus
 4. No distributed deployment support yet
 5. WASM module hot-reloading not yet implemented
 6. Notification subscription integration needs to be completed with transport layers
+7. Metrics system needs to be enhanced with real Prometheus integration in future updates
 
 ## Upcoming Milestones
 
 1. Complete integration of Notifications System with transport layers
-2. Complete Configuration System implementation (Phase 1)
-3. Implement Observability Framework (Phase 1)
-4. Apply Error Handling Framework to remaining codebase
-5. Complete stdio transport implementation
-6. Implement OAuth integration
-7. Implement secrets management
-8. Develop router hot-reloading
-9. Create improved developer documentation
-10. Implement monitoring and metrics collection
+2. Apply Error Handling Framework to remaining codebase
+3. Integrate Observability Framework with all components
+4. Complete stdio transport implementation
+5. Implement OAuth integration
+6. Implement secrets management
+7. Develop router hot-reloading
+8. Create improved developer documentation
+9. Enhance metrics collection with Prometheus integration
+10. Add distributed tracing with OpenTelemetry in future updates

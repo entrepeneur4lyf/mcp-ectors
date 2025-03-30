@@ -17,6 +17,7 @@ pub enum TransportActorEnum
     Wasi(Addr<WasiTransportActor>),
     Stdio(Addr<StdioTransportActor>),
 }
+#[derive(Default)]
 pub struct McpServer{
     router_service_manager: Option<RouterServiceManager>,
     transport_config: Option<Config>,
@@ -27,12 +28,7 @@ pub struct McpServer{
 impl McpServer
 {
     pub fn new() -> Self {
-        Self {
-            router_service_manager: None,
-            transport_config: None,
-            log_config: None,
-            transport: None,
-        }
+        Self::default()
     }
 
 
@@ -44,7 +40,7 @@ impl McpServer
                 transport_addr.do_send(StopTransport); // Assuming TransportRequest has Stop variant
             },
             Some(TransportActorEnum::Wasi(transport_addr)) => {
-                transport_addr.do_send(StopTransport); 
+                transport_addr.do_send(StopTransport);
             },
             Some(TransportActorEnum::Stdio(transport_addr)) => {
                 transport_addr.do_send(StopTransport);
@@ -67,7 +63,7 @@ impl McpServer
 
     pub fn with_logging(mut self, log_config: LogConfig) -> Self {
         let file_appender = RollingFileAppender::new(Rotation::DAILY, log_config.clone().log_dir, log_config.clone().log_file);
-        
+
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env().add_directive(log_config.level.into()))
             .with_writer(file_appender)
@@ -81,7 +77,7 @@ impl McpServer
     }
 
     pub fn start(mut self) -> std::result::Result<Self, std::string::String> {
-        
+
         if self.router_service_manager.is_none() || self.transport_config.is_none() {
             return Err("Missing required configuration".to_string());
         }
@@ -95,9 +91,9 @@ impl McpServer
         let transport = match transport_config {
             Config::Sse(sse_transport) => {
                 let addr = SseTransportActor::new(
-                    sse_transport, 
-                    client_registry, 
-                    router_registry, 
+                    sse_transport,
+                    client_registry,
+                    router_registry,
                     InitializationActor::new(),
                     list_prompts_actor,
                     list_tools_actor,
@@ -107,8 +103,8 @@ impl McpServer
             },
             Config::Wasi(wasi_transport_config) => {
                 let addr = WasiTransportActor::new(
-                    wasi_transport_config, 
-                    client_registry, 
+                    wasi_transport_config,
+                    client_registry,
                         router_registry,
                     list_prompts_actor,
                 list_tools_actor,
@@ -130,7 +126,7 @@ impl McpServer
             },
             Some(TransportActorEnum::Wasi(transport_addr)) => {
                 // Start the WasiTransportActor
-                transport_addr.do_send(StartTransport); 
+                transport_addr.do_send(StartTransport);
             },
             Some(TransportActorEnum::Stdio(transport_addr)) => {
                 // Start the StdioTransportActor

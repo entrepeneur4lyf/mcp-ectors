@@ -4,16 +4,14 @@ use mcp_spec::{protocol::{JsonRpcResponse, ListToolsResult}, tool::Tool};
 
 
 /// **A simple tool router that implements `RouterHandler`**
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ListToolsActor {
     tools: Vec<Tool>,
 }
 
 impl ListToolsActor {
     pub fn new() -> Self {
-        Self {
-            tools:Vec::new(),
-        }
+        Self::default()
     }
 
     fn list_tools(&self) -> Vec<Tool> {
@@ -49,7 +47,7 @@ impl Handler<ListToolsRequest> for ListToolsActor {
              // Acquire the read lock
             Ok(JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
-                id: request.id.clone(),
+                id: request.id, // Remove clone for Copy type
                 result: Some(serde_json::json!(result.clone())), // Clone the tools list to avoid holding the lock
                 error: None,
             })
@@ -68,11 +66,11 @@ where
         let new_tools: Vec<Tool> = msg
             .tools
             .into_iter()
-            .enumerate()
-            .map(|(_i, tool)| {
+            // Removed .enumerate() as index is not used
+            .map(|tool| {
                 // Substitute router_id:name into the name of each tool
                 let new_name = format!("{}{}{}", msg.router_id, ROUTER_SEPERATOR, tool.name);
-                
+
                 // Create new Tool with updated name and keep description and arguments intact
                 Tool {
                     name: new_name,
@@ -100,11 +98,11 @@ where
         let old_tools: Vec<Tool> = msg
             .tools
             .into_iter()
-            .enumerate()
-            .map(|(_i, tool)| {
+            // Removed .enumerate() as index is not used
+            .map(|tool| {
                 // Substitute router_id:name into the name of each tool
                 let new_name = format!("{}{}{}", msg.router_id, ROUTER_SEPERATOR, tool.name);
-                
+
                 // Create new Tool with updated name and keep description and arguments intact
                 Tool {
                     name: new_name,

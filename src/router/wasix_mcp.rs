@@ -34,13 +34,13 @@ impl From<wasix::mcp::router::McpResource> for mcp_spec::Resource {
 impl From<wasix::mcp::router::ResourceContents> for mcp_spec::ResourceContents {
     fn from(resource: wasix::mcp::router::ResourceContents) -> Self {
         match resource {
-            wasix::mcp::router::ResourceContents::Text(contents) => 
-                mcp_spec::ResourceContents::TextResourceContents { 
-                    uri: contents.uri, 
-                    mime_type: contents.mime_type, 
+            wasix::mcp::router::ResourceContents::Text(contents) =>
+                mcp_spec::ResourceContents::TextResourceContents {
+                    uri: contents.uri,
+                    mime_type: contents.mime_type,
                     text: contents.text,
                 },
-            wasix::mcp::router::ResourceContents::Blob(contents) => 
+            wasix::mcp::router::ResourceContents::Blob(contents) =>
                 mcp_spec::ResourceContents::BlobResourceContents {
                     uri: contents.uri,
                     mime_type: contents.mime_type,
@@ -55,7 +55,7 @@ impl From<wasix::mcp::router::Annotations> for mcp_spec::Annotations {
         mcp_spec::Annotations {
             audience: Some(annotations.audience.map(|args| {
                 args.into_iter()
-                    .map(|arg| mcp_spec::Role::from(arg)) // Convert `Role` correctly
+                    .map(mcp_spec::Role::from) // Use function directly
                     .collect::<Vec<mcp_spec::Role>>()
             }).unwrap_or_default()),
             priority: annotations.priority,
@@ -81,7 +81,7 @@ impl From<wasix::mcp::router::Prompt> for mcp_spec::prompt::Prompt {
             description: prompt.description,
             arguments: prompt.arguments.map(|args| {
                 Some(args.into_iter()
-                    .map(|arg| mcp_spec::prompt::PromptArgument::from(arg))
+                    .map(mcp_spec::prompt::PromptArgument::from) // Use function directly
                     .collect::<Vec<mcp_spec::prompt::PromptArgument>>()
                 )
             }).unwrap_or_default(),
@@ -103,10 +103,7 @@ impl From<wasix::mcp::router::TextContent> for mcp_spec::TextContent {
     fn from(text: wasix::mcp::router::TextContent) -> Self {
         mcp_spec::TextContent {
             text: text.text,
-            annotations: match text.annotations{
-                Some(anno) => Some(mcp_spec::Annotations::from(anno)),
-                None => None,
-            }
+            annotations: text.annotations.map(mcp_spec::Annotations::from) // Use Option::map
         }
     }
 }
@@ -125,69 +122,51 @@ impl From<wasix::mcp::router::Content> for mcp_spec::Content {
 impl From<wasix::mcp::router::ServerCapabilities> for mcp_spec::protocol::ServerCapabilities {
     fn from(cap: wasix::mcp::router::ServerCapabilities) -> Self {
         mcp_spec::protocol::ServerCapabilities {
-            prompts: match cap.prompts{
-                Some(prompts) => {
-                    Some(mcp_spec::protocol::PromptsCapability{
-                        list_changed: prompts.list_changed
-                    })
-                },
-                None => None,
-            },
-            resources: match cap.resources{
-                Some(res) => {
-                    Some(mcp_spec::protocol::ResourcesCapability{
-                        list_changed: res.list_changed,
-                        subscribe: res.subscribe,
-                    })
-                },
-                None => None,
-            },
-            tools: match cap.tools{
-                Some(tools) => {
-                    Some(mcp_spec::protocol::ToolsCapability{
-                        list_changed: tools.list_changed
-                    })
-                },
-                None => None,
-            },
+            prompts: cap.prompts.map(|prompts| mcp_spec::protocol::PromptsCapability { // Use Option::map
+                list_changed: prompts.list_changed
+            }),
+            resources: cap.resources.map(|res| mcp_spec::protocol::ResourcesCapability { // Use Option::map
+                list_changed: res.list_changed,
+                subscribe: res.subscribe,
+            }),
+            tools: cap.tools.map(|tools| mcp_spec::protocol::ToolsCapability { // Use Option::map
+                list_changed: tools.list_changed
+            }),
         }
     }
 }
 
-impl From<wasix::mcp::router::ImageContent> for mcp_spec::ImageContent { 
+impl From<wasix::mcp::router::ImageContent> for mcp_spec::ImageContent {
     fn from(image: wasix::mcp::router::ImageContent) -> Self {
         ImageContent{
             data: image.data,
             mime_type: image.mime_type,
-            annotations: match image.annotations{
-                Some(anno) => Some(mcp_spec::Annotations::from(anno)),
-                None => None,
-            }
+            annotations: image.annotations.map(mcp_spec::Annotations::from) // Use Option::map
         }
     }
 }
-impl From<wasix::mcp::router::EmbeddedResource> for mcp_spec::content::EmbeddedResource { 
+impl From<wasix::mcp::router::EmbeddedResource> for mcp_spec::content::EmbeddedResource {
     fn from(embedded: wasix::mcp::router::EmbeddedResource) -> Self {
-        EmbeddedResource{ 
+        EmbeddedResource{
             resource: match embedded.resource_contents {
-                wasix::mcp::router::ResourceContents::Text(text) 
-                    => ResourceContents::TextResourceContents { 
-                        uri: text.uri, 
-                        mime_type: text.mime_type, 
-                        text: text.text, 
+                wasix::mcp::router::ResourceContents::Text(text)
+                    => ResourceContents::TextResourceContents {
+                        uri: text.uri,
+                        mime_type: text.mime_type,
+                        text: text.text,
                     },
-                wasix::mcp::router::ResourceContents::Blob(blob) 
-                    => ResourceContents::BlobResourceContents { 
-                        uri: blob.uri, 
+                wasix::mcp::router::ResourceContents::Blob(blob)
+                    => ResourceContents::BlobResourceContents {
+                        uri: blob.uri,
                         mime_type: blob.mime_type,
-                        blob: blob.blob 
+                        blob: blob.blob
                     },
-            }, 
+            },
             annotations: match embedded.annotations {
-                Some(annotations) => 
+                Some(annotations) =>
                     Some(mcp_spec::Annotations::from(annotations)),
                 None => todo!(),
-            }, 
+            },
         }
     }
 }
@@ -201,19 +180,19 @@ impl From<wasix::mcp::router::PromptMessage> for mcp_spec::prompt::PromptMessage
             },
             content: match prompt.content {
                 PromptMessageContent::Text(text) => mcp_spec::prompt::PromptMessageContent::Text { text: text.text },
-                PromptMessageContent::Image(image) => 
-                    mcp_spec::prompt::PromptMessageContent::Image { 
+                PromptMessageContent::Image(image) =>
+                    mcp_spec::prompt::PromptMessageContent::Image {
                         image: ImageContent::from(image)
                     },
-                PromptMessageContent::McpResource(embedded) => 
-                    prompt::PromptMessageContent::Resource { 
-                        resource: EmbeddedResource { 
-                            resource: mcp_spec::ResourceContents::from(embedded.resource_contents), 
+                PromptMessageContent::McpResource(embedded) =>
+                    prompt::PromptMessageContent::Resource {
+                        resource: EmbeddedResource {
+                            resource: mcp_spec::ResourceContents::from(embedded.resource_contents),
                             annotations: match embedded.annotations {
-                                Some(annotations) => 
+                                Some(annotations) =>
                                     Some(mcp_spec::Annotations::from(annotations)),
                                 None => todo!(),
-                            }, 
+                            },
                         }
                     },
                 },
@@ -248,19 +227,16 @@ pub fn value_to_json(val: wasix::mcp::router::Value) -> JsonValue {
 pub fn json_to_value(val: JsonValue) -> Option<wasix::mcp::router::Value> {
     // Ensure it's an object, and extract the first key-value pair
     if let JsonValue::Object(map) = val {
-        for (key, value) in map {
-            match value.as_str() {
-                Some(value) => {
-                     // Return the first key-value pair found
-                    let mcp_value = Value{key, data: value.to_string()};
-                    return Some(mcp_value)
-                }
-                None => return None,
+        // Use if let to handle the first element, addressing the never_loop lint
+        if let Some((key, value)) = map.into_iter().next() {
+            if let Some(value_str) = value.as_str() {
+                // Return the first key-value pair found
+                let mcp_value = Value { key, data: value_str.to_string() };
+                return Some(mcp_value);
             }
         }
     }
-    None // Return None if the value is not an object or empty
-    
+    None // Return None if the value is not an object, empty, or the value is not a string
 }
 
 #[cfg(test)]
@@ -389,12 +365,12 @@ mod tests {
         let wasix_prompt_message = wasix::mcp::router::PromptMessage {
             role: wasix::mcp::router::PromptMessageRole::User,
             content: PromptMessageContent::Text(
-                wasix::mcp::router::TextContent{ 
+                wasix::mcp::router::TextContent{
                     text: "This is a prompt message".to_string(),
-                    annotations: Some(Annotations{ 
+                    annotations: Some(Annotations{
                         audience: Some(vec![wasix::mcp::router::Role::Assistant]),
-                        priority: Some(5.0), 
-                        timestamp: None 
+                        priority: Some(5.0),
+                        timestamp: None
                     }),
                 },
             ),

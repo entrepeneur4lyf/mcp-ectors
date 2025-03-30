@@ -1,5 +1,5 @@
 use std::{future::Future, pin::Pin};
-use mcp_ectors::router::{router::ResponseFuture, Router};
+use mcp_ectors::router::{router_trait::ResponseFuture, Router};
 use mcp_spec::{handler::PromptError, prompt::{Prompt, PromptMessage, PromptMessageContent, PromptMessageRole}, protocol::{CallToolResult, GetPromptResult, InitializeResult, PromptsCapability, ReadResourceResult, ResourcesCapability, ServerCapabilities, ToolsCapability}, Annotations, Content::Text, Resource, ResourceContents::TextResourceContents, Role::User, TextContent, Tool};
 use serde_json::Value;
 use chrono::{DateTime, Utc, TimeZone};
@@ -40,7 +40,7 @@ impl Router for MockRouter {
             prompts: Some(PromptsCapability{ list_changed: Some(true) }),
         }
     }
-    
+
 
     fn list_tools(&self) -> Vec<Tool> {
         self.tool_result.clone()
@@ -56,11 +56,11 @@ impl Router for MockRouter {
             if tool_name_owned == "tool1" {
                 // Assume that for echo_tool, the tool echoes the message.
                 let dt: DateTime<Utc> = Utc.with_ymd_and_hms(2222, 2, 22,0, 0, 0).unwrap();
-                let message = TextContent{ 
-                    text: "default message".to_string(), 
-                    annotations: Some(Annotations{ 
-                        audience: Some(vec![User]), 
-                        priority: Some(1.0), 
+                let message = TextContent{
+                    text: "default message".to_string(),
+                    annotations: Some(Annotations{
+                        audience: Some(vec![User]),
+                        priority: Some(1.0),
                         timestamp: Some(dt),
                     }) };
                 let result = CallToolResult{ content: vec![Text(message)], is_error: Some(false) };
@@ -77,13 +77,13 @@ impl Router for MockRouter {
         vec![
             Resource {
                 uri:"echo://fixedresource".to_string(),
-                description: Some("A fixed echo resource".to_string()), 
-                name:"resource_name".to_string(), 
-                mime_type: "text".to_string(), 
-                annotations: Some(Annotations{ 
+                description: Some("A fixed echo resource".to_string()),
+                name:"resource_name".to_string(),
+                mime_type: "text".to_string(),
+                annotations: Some(Annotations{
                     audience: Some(vec![User]),
-                    priority: Some(1.0), 
-                    timestamp: Some(dt), 
+                    priority: Some(1.0),
+                    timestamp: Some(dt),
                 })}
         ]
     }
@@ -109,7 +109,7 @@ impl Router for MockRouter {
         vec![
             Prompt {
                 name:"dummy_prompt".to_string(),
-                description:Some("A dummy prompt for testing".to_string()), 
+                description:Some("A dummy prompt for testing".to_string()),
                 arguments: None,
                 //Some(vec![PromptArgument{
                 //    name: "dummy_prompt_argument".to_string(),
@@ -120,7 +120,7 @@ impl Router for MockRouter {
     }
 
     fn get_prompt(&self, prompt_name: &str) -> ResponseFuture<Result<GetPromptResult, PromptError>> {
-        let prompt = prompt_name.to_string(); 
+        let prompt = prompt_name.to_string();
         Box::pin(async move {
             let result = GetPromptResult {
                 description: None,
@@ -129,7 +129,7 @@ impl Router for MockRouter {
                     role:PromptMessageRole::User,
                 }],
             };
-            
+
             if prompt == "dummy_prompt" {
                 Ok(result.clone())  // Return the result when the prompt matches
             } else {

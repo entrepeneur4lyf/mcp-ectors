@@ -1,6 +1,3 @@
-
-
-
 use std::{future::Future, pin::Pin};
 
 use mcp_spec::{handler::{PromptError, ResourceError}, prompt::Prompt, protocol::{CallToolResult, GetPromptResult, PromptsCapability, ReadResourceResult, ResourcesCapability, ServerCapabilities, ToolsCapability}, Resource, Tool, ToolError};

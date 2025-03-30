@@ -32,15 +32,14 @@ pub struct TopicResponse {
     pub data: String,
 }
 
+#[derive(Default)]
 pub struct TopicRegistryActor {
     subscriptions: HashMap<String, Vec<Recipient<TopicMessage>>>,
 }
 
 impl TopicRegistryActor {
     pub fn new() -> Self {
-        Self {
-            subscriptions: HashMap::new(),
-        }
+        Self::default()
     }
 }
 

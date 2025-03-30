@@ -14,7 +14,7 @@ pub trait RouterRegistry {
     fn get_router(&self, action: String) -> (Option<Addr<RouterActor>>,String);
     fn unregister_router(&mut self, router_id: &str);
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ActorRouterRegistry{
     routers: HashMap<String, Addr<RouterActor>>,
 }
@@ -25,10 +25,8 @@ impl Actor for ActorRouterRegistry
 }
 
 impl ActorRouterRegistry{
-    pub fn new() -> Self{
-        Self{
-            routers: HashMap::new(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 fn split_at_seperator(input: String) -> (String, Option<String>) {
@@ -57,7 +55,7 @@ impl RouterRegistry for ActorRouterRegistry
 
     fn get_router(&self, mut action: String) -> (Option<Addr<RouterActor>>,String) {
         // given we have many routers, we rewrite them as router_id:method, e.g. counter:call_tool
-        let (router_id, action_opt) = split_at_seperator(action); 
+        let (router_id, action_opt) = split_at_seperator(action);
         action = match action_opt {
             Some(action_ret) => action_ret,
             None => router_id.clone(),

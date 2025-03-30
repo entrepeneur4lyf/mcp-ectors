@@ -172,7 +172,7 @@ async fn start_server(log_dir: String, log_file: String, log_level: String, wasm
     // Wait until a shutdown signal is received.
     tokio::select! {
         _ = ctrl_c_signal => {
-            let _ = server.stop();
+            server.stop();
         },
     }
 }

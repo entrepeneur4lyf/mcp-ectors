@@ -9,7 +9,7 @@ use mcp_spec::protocol::{ErrorData, JsonRpcError, JsonRpcMessage, JsonRpcRequest
 use serde_json::Value;
 use tracing::{error, info, trace};
 use crate::client::ClientRegistryActor;
-use crate::client::client_registry::{RegisterClient, NotifyClient}; 
+use crate::client::client_registry::{RegisterClient, NotifyClient};
 
 use crate::mcp::{InitializationActor, ListPromptsActor, ListResourcesActor, ListToolsActor};
 // Ensure these are imported correctly
@@ -26,9 +26,18 @@ use std::time::Duration;
 use actix_web::error::Error;
 
 use super::transport_actor::TransportActorTrait;
-use super::TransportError; 
+use super::TransportError;
 
-
+// Context struct to hold actor addresses for post_handler
+#[derive(Clone)]
+struct PostHandlerContext {
+    registry: Addr<ClientRegistryActor>,
+    router_registry: Addr<ActorRouterRegistry>,
+    initialization_actor: InitializationActor,
+    prompts: Addr<ListPromptsActor>,
+    tools: Addr<ListToolsActor>,
+    resources: Addr<ListResourcesActor>,
+}
 
 // Configuration struct for the server
 #[derive(Clone,Debug)]
@@ -55,8 +64,8 @@ pub struct SseTransportActor
 }
 impl SseTransportActor
 {
-    pub fn new(config: SseTransportConfig, 
-        registry_addr: Addr<ClientRegistryActor>, 
+    pub fn new(config: SseTransportConfig,
+        registry_addr: Addr<ClientRegistryActor>,
         router_registry: Addr<ActorRouterRegistry>,
         initialize: InitializationActor,
         prompts: Addr<ListPromptsActor>,
@@ -75,10 +84,10 @@ impl SseTransportActor
             server: None,
         }
     }
-    
+
 }
 
-impl TransportActorTrait for SseTransportActor 
+impl TransportActorTrait for SseTransportActor
 {
     type Config = SseTransportConfig;
 
@@ -96,14 +105,14 @@ impl TransportActorTrait for SseTransportActor
 }
 
 
-impl Actor for SseTransportActor 
+impl Actor for SseTransportActor
 {
     type Context = Context<Self>;
 
 }
 
 /// Registers a new SSE client.
-impl Handler<RegisterSseClient> for SseTransportActor 
+impl Handler<RegisterSseClient> for SseTransportActor
 {
     type Result = u64;
 
@@ -149,14 +158,14 @@ impl Handler<NotifySseClient> for SseTransportActor
 }
 
 /// Broadcasts a message to all connected SSE clients.
-impl Handler<BroadcastSseMessage> for SseTransportActor 
+impl Handler<BroadcastSseMessage> for SseTransportActor
 {
     type Result = ();
 
     fn handle(&mut self, msg: BroadcastSseMessage, _ctx: &mut Self::Context) -> Self::Result {
         tracing::info!("Broadcasting message to {} SSE clients", self.clients.len());
         for (_id, recipient) in self.clients.iter() {
-            let _ = recipient.do_send(ClientMessage(msg.message.clone()));
+            recipient.do_send(ClientMessage(msg.message.clone()));
         }
     }
 }
@@ -165,9 +174,9 @@ impl Handler<TransportRequest> for SseTransportActor
     type Result = Result<JsonRpcResponse, JsonRpcError>;
 
     fn handle(&mut self, msg: TransportRequest, _ctx: &mut Self::Context) -> Self::Result {
-        Err(JsonRpcUtils::error_response(msg.request.id, 
-            MCP_INVALID_REQUEST, 
-            format!("Did not expect this request: {:?}",msg.request).as_str(), 
+        Err(JsonRpcUtils::error_response(msg.request.id,
+            MCP_INVALID_REQUEST,
+            format!("Did not expect this request: {:?}",msg.request).as_str(),
         None))
     }
 }
@@ -202,7 +211,7 @@ impl Handler<StartTransport> for SseTransportActor
 {
     type Result = ResponseActFuture<Self, Result<(), TransportError>>; // Return Result<(), TransportError>
     fn handle(&mut self, _msg: StartTransport, _ctx: &mut Self::Context) -> Self::Result {
-        
+
         tracing::info!("Starting SSE transport...");
         let addr_str = format!("0.0.0.0:{}", self.config.port);
         let registry_addr = self.registry_addr.clone();
@@ -215,16 +224,21 @@ impl Handler<StartTransport> for SseTransportActor
 
         // Wrap the async logic inside a future and ensure it resolves to `()`.
 
+        // Create the context for the post handler
+        let post_handler_context = PostHandlerContext {
+            registry: registry_addr.clone(),
+            router_registry: router_registry.clone(),
+            initialization_actor: initialize.clone(),
+            prompts: prompts.clone(),
+            tools: tools.clone(),
+            resources: resources.clone(),
+        };
+
         // Attempt to bind the HTTP server.
         let server_result = HttpServer::new(move || {
             App::new()
                 .wrap(Logger::default())
-                .app_data(Data::new(registry_addr.clone()))
-                .app_data(Data::new(router_registry.clone()))
-                .app_data(Data::new(initialize.clone()))
-                .app_data(Data::new(prompts.clone()))
-                .app_data(Data::new(tools.clone()))
-                .app_data(Data::new(resources.clone()))
+                .app_data(Data::new(post_handler_context.clone())) // Pass the context struct
                 .route("/sse", web::get().to(sse_handler))
                 .route("/messages/", web::post().to(post_handler))
         })
@@ -249,14 +263,14 @@ impl Handler<StartTransport> for SseTransportActor
         let handle = server.handle();
         // Store the handle in the actor.
         self.server = Some(handle);
-        
+
         actix_web::rt::spawn(async move {
             if let Err(e) = server.await {
                 tracing::error!("Server run error: {:?}", e);
             }
         });
-            
-    
+
+
 
         // Wrap the future inside a ResponseActFuture and return it.
         Box::pin(actix::fut::wrap_future(async { Ok(()) }))
@@ -267,7 +281,7 @@ impl Handler<StartTransport> for SseTransportActor
 
 
 /// Handles `StopTransport`
-impl Handler<StopTransport> for SseTransportActor 
+impl Handler<StopTransport> for SseTransportActor
 {
     type Result = ();
 
@@ -276,7 +290,8 @@ impl Handler<StopTransport> for SseTransportActor
 
         // Stop the server gracefully
         if let Some(handle) = self.server.take() {
-            let _ = handle.stop(true);
+            // Explicitly drop the future to silence the warning
+            std::mem::drop(handle.stop(true));
             tracing::info!("SSE transport server stopped.");
         }
     }
@@ -296,8 +311,8 @@ async fn sse_handler(registry: Data<Addr<ClientRegistryActor>>) -> Sse<impl Stre
         .event("endpoint")
         .into();
 
-    let stream = futures::stream::once(async { 
-            Ok(init_event) 
+    let stream = futures::stream::once(async {
+            Ok(init_event)
         })
         .chain(futures::stream::unfold(rx, |mut rx| async {
             match rx.recv().await {
@@ -318,13 +333,8 @@ async fn sse_handler(registry: Data<Addr<ClientRegistryActor>>) -> Sse<impl Stre
 async fn post_handler(
     query: web::Query<HashMap<String, String>>,
     payload: web::Json<JsonRpcRequest>,
-    registry: Data<Addr<ClientRegistryActor>>,
-    router_registry: Data<Addr<ActorRouterRegistry>>,
-    initialization_actor: Data<InitializationActor>,
-    prompts: Data<Addr<ListPromptsActor>>,
-    tools: Data<Addr<ListToolsActor>>,
-    resources: Data<Addr<ListResourcesActor>>,
-) -> Result<HttpResponse, Error>  
+    context: Data<PostHandlerContext>, // Use the context struct
+) -> Result<HttpResponse, Error>
 {
     let session_id = query.get("session_id")
         .ok_or_else(|| actix_web::error::ErrorBadRequest("Missing session_id"))?;
@@ -334,12 +344,12 @@ async fn post_handler(
     let response: Result<JsonRpcResponse, JsonRpcError> = match payload.method.as_str() {
         CallToolRequest::METHOD | GetPromptRequest::METHOD | ListResourceTemplatesRequest::METHOD => {
             trace!("Calling call tool/prompt");
-            let id = payload.id.clone();
+            let id = payload.id; // Remove clone for Copy type
             let req = payload.into_inner();
             let att = "name".to_string();
             let params=  req.clone().params.expect("no params found");
             let action = params[att.clone()].as_str().expect("tool/prompt name not found");
-            match router_request(id, action.to_string(), router_registry, req.clone(), att.clone()).await {
+            match router_request(id, action.to_string(), context.clone(), req.clone(), att.clone()).await { // Pass context
                 Ok(res) => Ok(res),
                 Err(err) => Err(err),
             }
@@ -347,12 +357,12 @@ async fn post_handler(
         },
         ReadResourceRequest::METHOD | SubscribeRequest::METHOD | UnsubscribeRequest::METHOD => {
             tracing::trace!("Calling read/subscribe/unsubscribe resource");
-            let id = payload.id.clone();
+            let id = payload.id; // Remove clone for Copy type
             let req = payload.into_inner();
             let att = "uri".to_string();
             let params=  req.clone().params.expect("no params found");
             let action = params[att.clone()].as_str().expect("resource uri not found");
-            match router_request(id, action.to_string(), router_registry, req.clone(), att.clone()).await {
+            match router_request(id, action.to_string(), context.clone(), req.clone(), att.clone()).await { // Pass context
                 Ok(res) => Ok(res),
                 Err(err) => Err(err),
             }
@@ -362,20 +372,20 @@ async fn post_handler(
             // Handle InitializeRequest by calling InitializationActor
             tracing::info!("Received InitializeRequest");
             // Call the InitializationActor for InitializeRequest
-            initialization_actor.handle_initialize_request(payload.0)
-            
+            context.initialization_actor.handle_initialize_request(payload.0)
+
         },
         InitializedNotificationRequest::METHOD => {
             // Handle InitializedNotificationRequest by calling InitializationActor
             tracing::info!("Received InitializedNotificationRequest");
             // Call the InitializationActor for InitializedNotificationRequest
-            initialization_actor.handle_initialized_notification_request(payload.0)
+            context.initialization_actor.handle_initialized_notification_request(payload.0)
 
         },
         ListToolsRequest::METHOD => {
             tracing::trace!("Calling list tools");
-            let id = payload.id.clone();
-            let result = tools.send(ListToolsRequest{request: payload.into_inner()})
+            let id = payload.id; // Remove clone for Copy type
+            let result = context.tools.send(ListToolsRequest{request: payload.into_inner()}) // Use context.tools
             .await
             .map_err(|e| JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_SERVICE_UNAVAILABLE, message: format!("Transport actor error: {}",e), data: None }, }).unwrap()
             .map_err(|e| JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_INTERNAL_SERVER_ERROR, message: format!("Processing actor error: {:?}",e), data: None }, }).unwrap();
@@ -384,8 +394,8 @@ async fn post_handler(
         },
         ListPromptsRequest::METHOD => {
             tracing::trace!("Calling list prompts");
-            let id = payload.id.clone();
-            let result = prompts.send(ListPromptsRequest{request: payload.into_inner()})
+            let id = payload.id; // Remove clone for Copy type
+            let result = context.prompts.send(ListPromptsRequest{request: payload.into_inner()}) // Use context.prompts
             .await
             .map_err(|e| JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_SERVICE_UNAVAILABLE, message: format!("Transport actor error: {}",e), data: None }, }).unwrap()
             .map_err(|e| JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_INTERNAL_SERVER_ERROR, message: format!("Processing actor error: {:?}",e), data: None }, }).unwrap();
@@ -395,8 +405,8 @@ async fn post_handler(
         },
         ListResourcesRequest::METHOD => {
             tracing::trace!("Calling list resources");
-            let id = payload.id.clone();
-            let result = resources.send(ListResourcesRequest{request: payload.into_inner()})
+            let id = payload.id; // Remove clone for Copy type
+            let result = context.resources.send(ListResourcesRequest{request: payload.into_inner()}) // Use context.resources
             .await
             .map_err(|e| JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_SERVICE_UNAVAILABLE, message: format!("Transport actor error: {}",e), data: None }, }).unwrap()
             .map_err(|e| JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_INTERNAL_SERVER_ERROR, message: format!("Processing actor error: {:?}",e), data: None }, }).unwrap();
@@ -405,7 +415,7 @@ async fn post_handler(
 
         },
         method => {
-            let id = payload.id.clone();
+            let id = payload.id; // Remove clone for Copy type
             Err(JsonRpcError{jsonrpc: JSONRPC_VERSION.to_owned(), id, error: ErrorData{code: MCP_INVALID_METHOD, message: format!("Invalid method: {}",method), data: None }, })
         }
 
@@ -415,13 +425,13 @@ async fn post_handler(
     match response {
         Ok(json_rpc_response) => {
             // Send the successful JsonRpcResponse to the client
-            registry.do_send(NotifyClient {
+            context.registry.do_send(NotifyClient { // Use context.registry
                 client_id,
                 message: JsonRpcMessage::Response(json_rpc_response), // Pass the JsonRpcResponse directly
             });
         }
         Err(error) => {
-            registry.do_send(NotifyClient {
+            context.registry.do_send(NotifyClient { // Use context.registry
                 client_id,
                 message: JsonRpcMessage::Error(error), // Pass the JsonRpcResponse directly
             });
@@ -432,8 +442,8 @@ async fn post_handler(
     Ok(HttpResponse::Ok().json("Accepted"))
 }
 
-async fn router_request(id: Option<u64>, action: String, router_registry:Data<Addr<ActorRouterRegistry>>, req: JsonRpcRequest, attribute: String) -> Result<JsonRpcResponse,JsonRpcError> {
-    let response = router_registry
+async fn router_request(id: Option<u64>, action: String, context: Data<PostHandlerContext>, req: JsonRpcRequest, attribute: String) -> Result<JsonRpcResponse,JsonRpcError> { // Pass context instead of individual actors
+    let response = context.router_registry // Use context.router_registry
         .send(GetRouter { router_id: action.clone(), _marker: std::marker::PhantomData })
         .await
         .unwrap();
@@ -442,7 +452,7 @@ async fn router_request(id: Option<u64>, action: String, router_registry:Data<Ad
         Some(response) => (Some(response.0),response.1),
         None => (None, action.clone()),
     };
-    
+
     //let (router,action) = router_registry.get_router(action);
     // replace whatever parameter had the router_id:action with only action, e.g. hello_world_actor:hello
     let mut req_cloned = req.clone();
@@ -461,29 +471,29 @@ async fn router_request(id: Option<u64>, action: String, router_registry:Data<Ad
                     Ok(json_rpc_response) => Ok(json_rpc_response),
                     Err(error) => {
                         error!("Failed to send {:?} to actor", action.clone());
-                        Err(JsonRpcUtils::error_response(id, 
-                        MCP_INVALID_REQUEST, 
-                        format!("transport error: {:?}",error).as_str(), 
+                        Err(JsonRpcUtils::error_response(id,
+                        MCP_INVALID_REQUEST,
+                        format!("transport error: {:?}",error).as_str(),
                         None))
                     }
                 }, // Successfully retrieved response
                 Err(_) => {
                     // Log error if sending the message failed
                     error!("Failed to send {:?} to router", action);
-                    Err(JsonRpcUtils::error_response(id, 
-                        JSON_RPC_INTERNAL_ERROR, 
-                        "transport error: ", 
+                    Err(JsonRpcUtils::error_response(id,
+                        JSON_RPC_INTERNAL_ERROR,
+                        "transport error: ",
                         None))
                 }
             }
         }
         None => {
             error!("Failed to find router for {:?}", req);
-            Err(JsonRpcUtils::error_response(id, 
-                JSON_RPC_INTERNAL_ERROR, 
-                format!("transport error, no router for {}", action).as_str(), 
+            Err(JsonRpcUtils::error_response(id,
+                JSON_RPC_INTERNAL_ERROR,
+                format!("transport error, no router for {}", action).as_str(),
             None))
 
         }
     }
-} 
+}

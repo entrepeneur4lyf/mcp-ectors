@@ -2,20 +2,18 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::router::{router::{CapabilitiesBuilder, ResponseFuture}, Router};
+use crate::router::{router_trait::{CapabilitiesBuilder, ResponseFuture}, Router}; // Updated import
 use mcp_spec::{handler::{PromptError, ResourceError}, prompt::Prompt, protocol::{CallToolResult, GetPromptResult, ReadResourceResult, ServerCapabilities}, Content, Resource, ResourceContents::TextResourceContents, Tool, ToolError};
 
 /// **A simple counter router that implements `RouterHandler`**
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CounterRouter {
     counter: Arc<Mutex<i32>>,
 }
 
 impl CounterRouter {
     pub fn new() -> Self {
-        Self {
-            counter: Arc::new(Mutex::new(0)),
-        }
+        Self::default()
     }
 
     async fn increment(&self) -> Result<i32, ()> {
@@ -151,11 +149,11 @@ impl Router for CounterRouter {
             }
         })
     }
-    
+
     fn list_prompts(&self) -> Vec<Prompt> {
         vec![]
     }
-    
+
     fn get_prompt(&self, _prompt_name: &str) -> ResponseFuture<Result<GetPromptResult, PromptError>> {
 
         let result = GetPromptResult{ description: None, messages: vec![] };

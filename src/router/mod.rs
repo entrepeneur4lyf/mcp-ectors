@@ -6,7 +6,7 @@ pub mod topic_registry_actor;
 pub mod router_service_manager;
 //pub mod native_router_registry;
 //pub mod actor_router_registry;
-pub mod router;
+pub mod router_trait; // Renamed from router.rs
 pub mod router_actor;
 pub mod system_router;
 pub mod wasm_router;
@@ -19,8 +19,7 @@ pub use topic_registry_actor::TopicRegistryActor;
 
 pub use router_service_manager::RouterServiceManager;
 //pub use actor_router_registry::ActorRouterRegistry;
-pub use router::Router;
+pub use router_trait::Router; // Updated import
 pub use router_actor::RouterActor;
 pub use system_router::SystemRouter;
 pub use wasm_router::WasmRouter;
-

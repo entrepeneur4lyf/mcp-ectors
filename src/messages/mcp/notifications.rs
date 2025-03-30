@@ -266,7 +266,7 @@ pub struct RouterStatusData {
 }
 
 /// Manages subscriptions for clients
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SubscriptionManager {
     subscriptions: Arc<RwLock<HashMap<String, Subscription>>>,
     /// Subscriptions indexed by client ID
@@ -276,10 +276,7 @@ pub struct SubscriptionManager {
 impl SubscriptionManager {
     /// Creates a new subscription manager
     pub fn new() -> Self {
-        Self {
-            subscriptions: Arc::new(RwLock::new(HashMap::new())),
-            client_subscriptions: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     /// Creates a new subscription

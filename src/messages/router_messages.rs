@@ -53,7 +53,6 @@ pub struct RouterRequest {
     pub request: JsonRpcRequest,
 }
 */
-
 /// Message from a router to TransportManager with the final response.
 #[derive(Message)]
 #[rtype(result = "()")]
