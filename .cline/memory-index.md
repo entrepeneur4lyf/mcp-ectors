@@ -52,7 +52,28 @@ This file serves as a master index for all memory files in the project. It conta
 | `src/examples/config_example.rs` | Configuration System Example | 2025-03-30 | New |
 | `src/examples/mod.rs` | Updated exports for Config Example | 2025-03-30 | Modified |
 | `src/utils/observability.rs` | Observability Framework | 2025-03-30 | New |
-| `src/examples/observability_example.rs` | Observability Framework Example | 2025-03-30 | New |
+| `src/examples/observability_example.rs` | Observability Framework Example | 2025-03-30 | Modified |
+| `src/transport/stdio_transport_actor.rs` | Stdio Transport Actor | 2025-03-30 | Modified |
+| `src/messages/router_messages.rs` | Router Messages | 2025-03-30 | Modified |
+| `src/transport/sse_transport_actor.rs` | SSE Transport Actor | 2025-03-30 | Modified |
+| `src/router/router_registry.rs` | Router Registry Actor | 2025-03-30 | Modified |
+| `src/router/topic_registry_actor.rs` | Topic Registry Actor | 2025-03-30 | Modified |
+| `src/router/router_service_manager.rs` | Router Service Manager | 2025-03-30 | Modified |
+| `src/router/mod.rs` | Router Module | 2025-03-30 | Modified |
+| `src/router/router_trait.rs` | Router Trait Definition | 2025-03-30 | New |
+| `src/router/system_router.rs` | System Router Implementation | 2025-03-30 | Modified |
+| `src/router/wasm_router.rs` | WASM Router Implementation | 2025-03-30 | Modified |
+| `src/router/wasix_mcp.rs` | WASIX MCP Bindings | 2025-03-30 | Modified |
+| `src/client/client_registry.rs` | Client Registry Actor | 2025-03-30 | Modified |
+| `src/messages/mcp/notifications.rs` | MCP Notifications | 2025-03-30 | Modified |
+| `src/utils/config.rs` | Configuration System | 2025-03-30 | Modified |
+| `src/mcp/initialize_actor.rs` | Initialization Actor | 2025-03-30 | Modified |
+| `src/mcp/list_prompts_actor.rs` | List Prompts Actor | 2025-03-30 | Modified |
+| `src/mcp/list_tools_actor.rs` | List Tools Actor | 2025-03-30 | Modified |
+| `src/mcp/list_resources_actor.rs` | List Resources Actor | 2025-03-30 | Modified |
+| `src/examples/counter_router.rs` | Counter Router Example | 2025-03-30 | Modified |
+| `src/examples/hello_world.rs` | Hello World Router Example | 2025-03-30 | Modified |
+| `src/server_builder.rs` | Server Builder | 2025-03-30 | Modified |
 
 ## Plan Files
 
@@ -87,6 +108,7 @@ This file serves as a master index for all memory files in the project. It conta
 | `.cline/task-logs/task-log_2025-03-30-13-57_error-recovery.md` | Error Recovery for Task Completion Standards | 2025-03-30 | Complete |
 | `.cline/task-logs/task-log_2025-03-30-14-00_sessionstart-handler.md` | SessionStart Event Handler Execution | 2025-03-30 | Complete |
 | `.cline/task-logs/task-log_2025-03-30-14-13_observability-framework-fix.md` | Observability Framework Implementation Fixes | 2025-03-30 | Complete |
+| `.cline/task-logs/task-log_2025-03-30-14-50_clippy-fixes.md` | Clippy Fixes | 2025-03-30 | Complete |
 
 ## Error Records
 
@@ -96,7 +118,7 @@ This file serves as a master index for all memory files in the project. It conta
 
 ## Memory Consistency Status
 
-- Last Consistency Check: 2025-03-30 14:13
+- Last Consistency Check: 2025-03-30 14:50
 - Status: Consistent
 - Verified By: Cline
 
